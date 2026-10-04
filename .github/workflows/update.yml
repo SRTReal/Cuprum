@@ -1,0 +1,39 @@
+name: Update CUPRUM data
+
+on:
+  schedule:
+    # 23:00 UTC daily — after COMEX close, before Asia open
+    - cron: "0 23 * * 1-5"
+  workflow_dispatch: {}       # manual trigger button
+
+permissions:
+  contents: write             # needed to push data.json back to the repo
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Fetch data
+        run: python fetch_data.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "cuprum-bot"
+          git config user.email "cuprum-bot@users.noreply.github.com"
+          if ! git diff --quiet data.json; then
+            git add data.json
+            git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ) snapshot"
+            git push
+          else
+            echo "no change"
+          fi

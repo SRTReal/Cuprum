@@ -1,0 +1,366 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<title>Copper Deficit Engine</title>
+<style>
+  /* CUPRUM module — deliberate single dark terminal world; all colors explicit. */
+  :root{
+    --bg:#131010; --panel:#1b1613; --panel-2:#221b16; --raise:#271f19;
+    --line:#302720; --line-2:#3f342b;
+    --ink:#f3ebe1; --ink-2:#bdac9d; --ink-3:#8a7b6d;
+    --copper:#d67c3f; --copper-2:#e6a163;
+    --good:#4cc088; --bad:#e35b4b; --warn:#e0a94e;
+    --grid:#2b231d;
+    --seg1:#c07a2f; --seg2:#2f9e6b; --seg3:#4f7fd0; --seg4:#c85a9c;
+    --supply:#f0c48a;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:14px 30px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  .topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),var(--panel));border-radius:12px;padding:12px 16px;margin-bottom:14px}
+  .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .mark{font-family:var(--mono);font-weight:600;letter-spacing:.4em;font-size:18px;color:var(--copper-2);text-indent:.4em}
+  .modname{font-size:13px;color:var(--ink);font-weight:600}
+  .sub{font-size:11px;color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase}
+  .proto{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--warn);border:1px solid #4a3a1e;background:#241c0f;padding:3px 8px;border-radius:999px;text-transform:uppercase;margin-left:auto}
+
+  .layout{display:grid;gap:14px;grid-template-columns:1fr 320px}
+  @media(max-width:900px){ .layout{grid-template-columns:1fr} }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .ptitle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:600}
+  .ptag{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+  .caption{font-size:11.5px;color:var(--ink-3);margin-top:9px}
+  .stack{display:flex;flex-direction:column;gap:14px}
+
+  .chart{position:relative;width:100%}
+  .chart svg{display:block;width:100%;height:auto}
+  .gridln{stroke:var(--grid);stroke-width:1}
+  .zeroln{stroke:var(--line-2);stroke-width:1.2}
+  .axlbl{fill:var(--ink-3);font-family:var(--mono);font-size:10px}
+  .guide{stroke:var(--copper-2);stroke-width:1;stroke-dasharray:3 3;opacity:0}
+  .tt{position:absolute;pointer-events:none;transform:translate(-50%,-100%);background:#0e0b09;border:1px solid var(--line-2);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:11px;white-space:nowrap;opacity:0;transition:opacity .08s;z-index:6;min-width:150px}
+  .tt .yr{color:var(--copper-2);font-weight:600;margin-bottom:4px}
+  .tt .r{display:flex;justify-content:space-between;gap:14px}
+  .tt .r span:first-child{color:var(--ink-3)}
+  .tt .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin-top:10px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .legend .lin{width:14px;height:0;border-top:2px dashed var(--supply);border-radius:0}
+
+  /* Controls */
+  .ctrl{display:flex;flex-direction:column;gap:15px}
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .presets button{font-family:var(--sans);font-size:11.5px;color:var(--ink-2);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 8px;cursor:pointer;transition:border-color .12s,color .12s}
+  .presets button:hover{border-color:var(--copper);color:var(--ink)}
+  .presets button.on{border-color:var(--copper);color:var(--copper-2);background:var(--raise)}
+  .slider{display:flex;flex-direction:column;gap:5px}
+  .slider .top{display:flex;justify-content:space-between;align-items:baseline}
+  .slider .lab{font-size:11.5px;color:var(--ink-2)}
+  .slider .val{font-family:var(--mono);font-size:12.5px;color:var(--copper-2);font-weight:600}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;background:var(--line-2);outline:none;margin:5px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--copper);border:2px solid var(--bg);cursor:pointer;box-shadow:0 0 0 1px var(--copper)}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--copper);border:2px solid var(--bg);cursor:pointer}
+  input[type=range]:focus-visible{box-shadow:0 0 0 2px var(--copper-2)}
+  .seghint{font-size:10px;color:var(--ink-3)}
+
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:2px}
+  .kpi{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 11px}
+  .kpi .k{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+  .kpi .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:3px}
+  .kpi .s{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);margin-top:2px}
+
+  footer{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;color:var(--ink-3);font-size:11px}
+  footer b{color:var(--ink-2)}
+  .disc{margin-top:6px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">CUPRUM</span>
+      <span class="modname">Electrification Deficit Engine</span>
+      <span class="sub">supply · demand · 2025–2030</span>
+    </div>
+    <span class="proto">Prototype · illustrative model</span>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: charts -->
+    <div class="stack">
+      <section class="panel">
+        <div class="phead"><span class="ptitle">Refined copper — supply vs demand</span><span class="ptag">Mt / yr</span></div>
+        <div class="chart" id="c-jaws"></div>
+        <div class="legend">
+          <span><i style="background:var(--seg1)"></i>Traditional</span>
+          <span><i style="background:var(--seg2)"></i>Grid &amp; renewables</span>
+          <span><i style="background:var(--seg3)"></i>Electric vehicles</span>
+          <span><i style="background:var(--seg4)"></i>Data centres &amp; AI</span>
+          <span><i class="lin"></i>Supply</span>
+        </div>
+        <div class="caption">Demand is stacked by end-use; the dashed line is mine + scrap supply. Where the line sits below the stack, the market is in deficit — the gap at 2030 is marked.</div>
+      </section>
+
+      <section class="panel">
+        <div class="phead"><span class="ptitle">Market balance — Monte Carlo</span><span class="ptag">600 paths · p10–p90</span></div>
+        <div class="chart" id="c-fan"></div>
+        <div class="caption">Each path perturbs every driver by its uncertainty, then reprojects. Band is the 10th–90th percentile; the line is the median. Below zero = deficit.</div>
+      </section>
+    </div>
+
+    <!-- RIGHT: controls + KPIs -->
+    <aside class="panel">
+      <div class="phead"><span class="ptitle">Scenario</span><span class="ptag" id="scen-tag">consensus</span></div>
+      <div class="ctrl">
+        <div class="presets" id="presets">
+          <button data-p="consensus" class="on">Consensus</button>
+          <button data-p="fast">Electrify fast</button>
+          <button data-p="supply">Supply responds</button>
+          <button data-p="stall">Demand stalls</button>
+        </div>
+
+        <div class="slider">
+          <div class="top"><span class="lab">EV share of new cars by 2030</span><span class="val" id="v-ev">55%</span></div>
+          <input type="range" id="s-ev" min="20" max="90" step="1" value="55">
+          <span class="seghint">≈83 kg copper per EV · ~92 M cars/yr</span>
+        </div>
+        <div class="slider">
+          <div class="top"><span class="lab">Grid &amp; renewables growth</span><span class="val" id="v-grid">7.0%/yr</span></div>
+          <input type="range" id="s-grid" min="0" max="14" step="0.5" value="7">
+        </div>
+        <div class="slider">
+          <div class="top"><span class="lab">Data-centre / AI growth</span><span class="val" id="v-dc">18%/yr</span></div>
+          <input type="range" id="s-dc" min="0" max="35" step="1" value="18">
+        </div>
+        <div class="slider">
+          <div class="top"><span class="lab">Traditional demand growth</span><span class="val" id="v-trad">1.5%/yr</span></div>
+          <input type="range" id="s-trad" min="0.5" max="3" step="0.1" value="1.5">
+        </div>
+        <div class="slider">
+          <div class="top"><span class="lab">Mine + scrap supply growth</span><span class="val" id="v-sup">2.5%/yr</span></div>
+          <input type="range" id="s-sup" min="-1" max="4" step="0.1" value="2.5">
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="k">2030 balance</div><div class="v" id="k-bal">—</div><div class="s" id="k-bal-s"></div></div>
+          <div class="kpi"><div class="k">Cumulative 25–30</div><div class="v" id="k-cum">—</div><div class="s">deficit</div></div>
+          <div class="kpi"><div class="k">Implied 2030 price</div><div class="v" id="k-price">—</div><div class="s" id="k-price-s"></div></div>
+          <div class="kpi"><div class="k">P(deficit 2030)</div><div class="v" id="k-prob">—</div><div class="s">of 600 paths</div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <div><b>Model:</b> base year 2025 ≈ 24.7 Mt refined demand (traditional 17.5, grid 5.0, EV 1.5, data 0.7). EV demand = cars × EV-share × 83 kg. Segments compound at the slider rates; supply compounds at its rate. Implied price = $9,800/t × (1 + 6 × deficit-as-%-of-demand), a stylised inverse-elasticity link. Monte Carlo perturbs each driver (σ: supply ±1.2 pp, grid ±2 pp, data ±5 pp, EV-share ±8 pp, traditional ±0.6 pp), 600 seeded paths.</div>
+    <div class="disc"><b>Sources (production build):</b> ICSG / Wood Mackenzie / IEA demand splits · USGS mine supply · company project pipelines. Prototype for demonstration — illustrative figures and a stylised model, not a forecast or investment advice.</div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var YEARS=[2025,2026,2027,2028,2029,2030], NY=6, HORIZON=5;
+  var BASE={trad:17.5,grid:5.0,dc:0.7,supply:24.7};
+  var CARS=92, KG_EV=83, EV_SHARE_0=0.20, P0=9800, ELAST=6;
+  var SEGCOL={trad:'#c07a2f',grid:'#2f9e6b',ev:'#4f7fd0',dc:'#c85a9c'};
+
+  var PRESETS={
+    consensus:{ev:55,grid:7,dc:18,trad:1.5,sup:2.5},
+    fast:{ev:82,grid:11,dc:28,trad:1.8,sup:2.0},
+    supply:{ev:45,grid:6,dc:12,trad:1.2,sup:4.0},
+    stall:{ev:30,grid:4,dc:8,trad:0.8,sup:3.0}
+  };
+
+  function fmt(n,d){d=(d==null?1:d);return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+  function money(n){return '$'+Math.round(n/50)*50>=0?'$'+fmt(Math.round(n/50)*50,0):'';}
+
+  function P(){ return {
+    ev:+document.getElementById('s-ev').value,
+    grid:+document.getElementById('s-grid').value,
+    dc:+document.getElementById('s-dc').value,
+    trad:+document.getElementById('s-trad').value,
+    sup:+document.getElementById('s-sup').value
+  };}
+
+  // Project a scenario (params in %/share units) → per-year series
+  function project(p){
+    var trad=[],grid=[],ev=[],dc=[],demand=[],supply=[],balance=[];
+    var gt=p.trad/100, gg=p.grid/100, gd=p.dc/100, gs=p.sup/100, sh2030=p.ev/100;
+    for(var y=0;y<NY;y++){
+      var t=BASE.trad*Math.pow(1+gt,y);
+      var g=BASE.grid*Math.pow(1+gg,y);
+      var d=BASE.dc*Math.pow(1+gd,y);
+      var share=EV_SHARE_0+(sh2030-EV_SHARE_0)*(y/HORIZON);
+      var e=CARS*share*KG_EV/1000;
+      var dem=t+g+e+d;
+      var sup=BASE.supply*Math.pow(1+gs,y);
+      trad.push(t);grid.push(g);ev.push(e);dc.push(d);demand.push(dem);supply.push(sup);balance.push(sup-dem);
+    }
+    var defFrac=Math.max(0,-balance[NY-1])/demand[NY-1];
+    var price=P0*(1+ELAST*defFrac);
+    var cum=0; for(var i=0;i<NY;i++) cum+=balance[i];
+    return {trad:trad,grid:grid,ev:ev,dc:dc,demand:demand,supply:supply,balance:balance,price:price,cum:cum,defFrac:defFrac};
+  }
+
+  // Seeded PRNG (mulberry32) + normal via Box-Muller
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function monte(p){
+    var r=rng(987654321), N=600;
+    var G=function(){var u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+    var perYear=[]; for(var y=0;y<NY;y++)perYear.push([]);
+    var prices=[], deficits=0;
+    for(var s=0;s<N;s++){
+      var q={ev:p.ev+G()*8, grid:p.grid+G()*2, dc:p.dc+G()*5, trad:p.trad+G()*0.6, sup:p.sup+G()*1.2};
+      if(q.ev<5)q.ev=5; if(q.ev>95)q.ev=95;
+      var pr=project(q);
+      for(var y=0;y<NY;y++)perYear[y].push(pr.balance[y]);
+      prices.push(pr.price);
+      if(pr.balance[NY-1]<0)deficits++;
+    }
+    function pct(a,q){a=a.slice().sort(function(x,y){return x-y;});var i=(a.length-1)*q;var lo=Math.floor(i),hi=Math.ceil(i);return a[lo]+(a[hi]-a[lo])*(i-lo);}
+    var p10=[],p50=[],p90=[];
+    for(var y=0;y<NY;y++){p10.push(pct(perYear[y],0.1));p50.push(pct(perYear[y],0.5));p90.push(pct(perYear[y],0.9));}
+    return {p10:p10,p50:p50,p90:p90,priceP50:pct(prices,0.5),priceP10:pct(prices,0.1),priceP90:pct(prices,0.9),pDef:deficits/N};
+  }
+
+  // ---- Jaws chart (stacked area + supply line) ----
+  function renderJaws(m){
+    var wrap=document.getElementById('c-jaws'),W=680,H=300,pT=14,pR=16,pB=26,pL=40;
+    var ymax=0; for(var y=0;y<NY;y++)ymax=Math.max(ymax,m.demand[y],m.supply[y]);
+    ymax=Math.ceil(ymax/8)*8; var ymin=0;
+    var X=function(i){return pL+i*(W-pL-pR)/(NY-1);};
+    var Y=function(v){return pT+(1-(v-ymin)/(ymax-ymin))*(H-pT-pB);};
+    var s='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img">';
+    for(var g=0;g<=4;g++){var gv=ymin+g*(ymax-ymin)/4,gy=Y(gv);
+      s+='<line class="gridln" x1="'+pL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pR)+'" y2="'+gy.toFixed(1)+'"/>';
+      s+='<text class="axlbl" x="'+(pL-6)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end">'+gv+'</text>';}
+    // stacked areas: order bottom->top trad,grid,ev,dc
+    var order=['trad','grid','ev','dc'], lower=new Array(NY).fill(0);
+    order.forEach(function(k){
+      var upper=lower.map(function(v,i){return v+m[k][i];});
+      var path='';
+      for(var i=0;i<NY;i++)path+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(upper[i]).toFixed(1)+' ';
+      for(var i=NY-1;i>=0;i--)path+='L'+X(i).toFixed(1)+' '+Y(lower[i]).toFixed(1)+' ';
+      s+='<path d="'+path+'Z" fill="'+SEGCOL[k]+'" fill-opacity="0.82" stroke="var(--panel)" stroke-width="0.75"/>';
+      lower=upper;
+    });
+    // supply line (dashed)
+    var sp='';for(var i=0;i<NY;i++)sp+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(m.supply[i]).toFixed(1)+' ';
+    s+='<path d="'+sp+'" fill="none" stroke="var(--supply)" stroke-width="2.4" stroke-dasharray="6 4" stroke-linecap="round"/>';
+    s+='<circle cx="'+X(NY-1).toFixed(1)+'" cy="'+Y(m.supply[NY-1]).toFixed(1)+'" r="3.4" fill="var(--supply)"/>';
+    // 2030 deficit bracket
+    var xg=X(NY-1)-10, yD=Y(m.demand[NY-1]), yS=Y(m.supply[NY-1]);
+    var bal=m.balance[NY-1], col=bal<0?'var(--bad)':'var(--good)';
+    s+='<line x1="'+xg+'" y1="'+yD.toFixed(1)+'" x2="'+xg+'" y2="'+yS.toFixed(1)+'" stroke="'+col+'" stroke-width="1.4"/>';
+    s+='<text x="'+(xg-5)+'" y="'+((yD+yS)/2+3).toFixed(1)+'" text-anchor="end" font-family="var(--mono)" font-size="11" font-weight="600" fill="'+col+'">'+(bal<0?'−':'+')+fmt(Math.abs(bal))+' Mt</text>';
+    for(var i=0;i<NY;i++)s+='<text class="axlbl" x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle">'+YEARS[i]+'</text>';
+    s+='<line class="guide" id="jg" x1="0" y1="'+pT+'" x2="0" y2="'+(H-pB)+'"/></svg><div class="tt" id="jtt"></div>';
+    wrap.innerHTML=s;
+    var svg=wrap.querySelector('svg'),gl=document.getElementById('jg'),tt=document.getElementById('jtt');
+    svg.addEventListener('pointermove',function(e){
+      var r=svg.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W;
+      var i=Math.round((px-pL)/((W-pL-pR)/(NY-1)));if(i<0)i=0;if(i>NY-1)i=NY-1;
+      gl.setAttribute('x1',X(i));gl.setAttribute('x2',X(i));gl.style.opacity=1;
+      var b=m.balance[i];
+      tt.innerHTML='<div class="yr">'+YEARS[i]+'</div>'
+        +'<div class="r"><span><span class="sw" style="background:var(--seg1)"></span>Traditional</span><b>'+fmt(m.trad[i])+'</b></div>'
+        +'<div class="r"><span><span class="sw" style="background:var(--seg2)"></span>Grid</span><b>'+fmt(m.grid[i])+'</b></div>'
+        +'<div class="r"><span><span class="sw" style="background:var(--seg3)"></span>EV</span><b>'+fmt(m.ev[i])+'</b></div>'
+        +'<div class="r"><span><span class="sw" style="background:var(--seg4)"></span>Data/AI</span><b>'+fmt(m.dc[i])+'</b></div>'
+        +'<div class="r" style="margin-top:3px;border-top:1px solid var(--line);padding-top:3px"><span>Demand</span><b>'+fmt(m.demand[i])+' Mt</b></div>'
+        +'<div class="r"><span>Supply</span><b>'+fmt(m.supply[i])+' Mt</b></div>'
+        +'<div class="r"><span>Balance</span><b style="color:'+(b<0?'var(--bad)':'var(--good)')+'">'+(b<0?'−':'+')+fmt(Math.abs(b))+' Mt</b></div>';
+      tt.style.left=(X(i)/W*100)+'%';tt.style.top=(Y(ymax*0.98)/H*r.height)+'px';tt.style.opacity=1;
+    });
+    svg.addEventListener('pointerleave',function(){gl.style.opacity=0;tt.style.opacity=0;});
+  }
+
+  // ---- Fan chart (balance p10-p90) ----
+  function renderFan(f){
+    var wrap=document.getElementById('c-fan'),W=680,H=200,pT=12,pR=16,pB=24,pL=40;
+    var lo=Math.min.apply(null,f.p10),hi=Math.max.apply(null,f.p90);
+    hi=Math.max(hi,0.5);lo=Math.min(lo,-0.5);var pad=(hi-lo)*0.1;hi+=pad;lo-=pad;
+    var X=function(i){return pL+i*(W-pL-pR)/(NY-1);};
+    var Y=function(v){return pT+(1-(v-lo)/(hi-lo))*(H-pT-pB);};
+    var s='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img">';
+    for(var g=0;g<=3;g++){var gv=lo+g*(hi-lo)/3,gy=Y(gv);
+      s+='<line class="gridln" x1="'+pL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pR)+'" y2="'+gy.toFixed(1)+'"/>';
+      s+='<text class="axlbl" x="'+(pL-6)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end">'+(gv>0?'+':'')+gv.toFixed(0)+'</text>';}
+    // band
+    var band='';for(var i=0;i<NY;i++)band+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(f.p90[i]).toFixed(1)+' ';
+    for(var i=NY-1;i>=0;i--)band+='L'+X(i).toFixed(1)+' '+Y(f.p10[i]).toFixed(1)+' ';
+    s+='<path d="'+band+'Z" fill="rgba(214,124,63,0.16)" stroke="none"/>';
+    // zero line
+    var z=Y(0);s+='<line class="zeroln" x1="'+pL+'" y1="'+z.toFixed(1)+'" x2="'+(W-pR)+'" y2="'+z.toFixed(1)+'" stroke-dasharray="4 3"/>';
+    s+='<text class="axlbl" x="'+(W-pR)+'" y="'+(z-4).toFixed(1)+'" text-anchor="end">balance = 0</text>';
+    // median
+    var med='';for(var i=0;i<NY;i++)med+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(f.p50[i]).toFixed(1)+' ';
+    s+='<path d="'+med+'" fill="none" stroke="var(--copper-2)" stroke-width="2.4" stroke-linejoin="round"/>';
+    var mcol=f.p50[NY-1]<0?'var(--bad)':'var(--good)';
+    s+='<circle cx="'+X(NY-1).toFixed(1)+'" cy="'+Y(f.p50[NY-1]).toFixed(1)+'" r="3.6" fill="'+mcol+'" stroke="var(--panel)" stroke-width="1.5"/>';
+    for(var i=0;i<NY;i++)s+='<text class="axlbl" x="'+X(i).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle">'+YEARS[i]+'</text>';
+    s+='</svg>';
+    wrap.innerHTML=s;
+  }
+
+  function setKPIs(m,f){
+    var bal=f.p50[NY-1];
+    var kb=document.getElementById('k-bal');
+    kb.textContent=(bal<0?'−':'+')+fmt(Math.abs(bal))+' Mt';
+    kb.style.color=bal<0?'var(--bad)':'var(--good)';
+    document.getElementById('k-bal-s').textContent='p10–p90 '+fmt(f.p10[NY-1])+' … '+(f.p90[NY-1]>0?'+':'')+fmt(f.p90[NY-1]);
+    var cum=m.cum;
+    var kc=document.getElementById('k-cum');kc.textContent=(cum<0?'−':'+')+fmt(Math.abs(cum))+' Mt';kc.style.color=cum<0?'var(--bad)':'var(--good)';
+    document.getElementById('k-price').textContent='$'+fmt(Math.round(f.priceP50/50)*50,0);
+    document.getElementById('k-price-s').textContent='$'+fmt(Math.round(f.priceP10/100)*100,0)+'–'+fmt(Math.round(f.priceP90/100)*100,0);
+    var kp=document.getElementById('k-prob');kp.textContent=Math.round(f.pDef*100)+'%';
+    kp.style.color=f.pDef>0.6?'var(--bad)':f.pDef>0.35?'var(--warn)':'var(--good)';
+  }
+
+  function readouts(p){
+    document.getElementById('v-ev').textContent=p.ev+'%';
+    document.getElementById('v-grid').textContent=fmt(p.grid,1)+'%/yr';
+    document.getElementById('v-dc').textContent=p.dc+'%/yr';
+    document.getElementById('v-trad').textContent=fmt(p.trad,1)+'%/yr';
+    document.getElementById('v-sup').textContent=fmt(p.sup,1)+'%/yr';
+  }
+
+  var raf=null;
+  function recompute(){
+    var p=P();readouts(p);
+    var m=project(p),f=monte(p);
+    renderJaws(m);renderFan(f);setKPIs(m,f);
+  }
+  function schedule(){ if(raf)cancelAnimationFrame(raf); raf=requestAnimationFrame(recompute); }
+
+  ['s-ev','s-grid','s-dc','s-trad','s-sup'].forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){ clearPreset(); schedule(); });
+  });
+  function clearPreset(){ document.querySelectorAll('#presets button').forEach(function(b){b.classList.remove('on');}); document.getElementById('scen-tag').textContent='custom'; }
+  document.querySelectorAll('#presets button').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var pr=PRESETS[btn.getAttribute('data-p')];
+      document.getElementById('s-ev').value=pr.ev;
+      document.getElementById('s-grid').value=pr.grid;
+      document.getElementById('s-dc').value=pr.dc;
+      document.getElementById('s-trad').value=pr.trad;
+      document.getElementById('s-sup').value=pr.sup;
+      document.querySelectorAll('#presets button').forEach(function(b){b.classList.remove('on');});
+      btn.classList.add('on');
+      document.getElementById('scen-tag').textContent=btn.textContent.toLowerCase();
+      schedule();
+    });
+  });
+
+  recompute();
+})();
+</script>

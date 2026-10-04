@@ -1,0 +1,468 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<title>CUPRUM Copper Terminal</title>
+<style>
+  /* Deliberate single-world design: a dark trading terminal. All colors painted explicitly. */
+  :root{
+    --bg:#131010; --panel:#1b1613; --panel-2:#221b16; --raise:#271f19;
+    --line:#302720; --line-2:#3f342b;
+    --ink:#f3ebe1; --ink-2:#bdac9d; --ink-3:#8a7b6d;
+    --copper:#d67c3f; --copper-2:#e6a163; --bronze:#b8843f;
+    --good:#4cc088; --bad:#e35b4b; --warn:#e0a94e;
+    --grid:#2b231d;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:14px 30px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  a{color:var(--copper-2)}
+
+  /* Top bar */
+  .topbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),var(--panel));border-radius:12px;padding:12px 16px;margin-bottom:14px}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .mark{font-family:var(--mono);font-weight:600;letter-spacing:.42em;font-size:20px;color:var(--copper-2);text-indent:.42em}
+  .brand .sub{font-size:11px;color:var(--ink-3);letter-spacing:.16em;text-transform:uppercase}
+  .proto{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--warn);border:1px solid #4a3a1e;background:#241c0f;padding:3px 8px;border-radius:999px;text-transform:uppercase}
+  .ticks{display:flex;gap:20px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .tick{display:flex;flex-direction:column;gap:1px}
+  .tick .k{font-size:10px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase}
+  .tick .v{font-family:var(--mono);font-size:15px;font-weight:500}
+  .up{color:var(--good)} .down{color:var(--bad)}
+  .regime{display:flex;flex-direction:column;gap:2px;padding-left:18px;border-left:1px solid var(--line)}
+  .regime .badge{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--copper-2);display:flex;align-items:center;gap:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(76,192,136,.18)}
+
+  /* Grid */
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(12,1fr);
+    grid-template-areas:
+      "price price price price price price price price conv conv conv conv"
+      "inv inv inv inv fund fund fund fund conv conv conv conv"
+      "pos pos pos pos geo geo geo geo evt evt evt evt";}
+  .p-price{grid-area:price} .p-conv{grid-area:conv} .p-inv{grid-area:inv}
+  .p-fund{grid-area:fund} .p-pos{grid-area:pos} .p-geo{grid-area:geo} .p-evt{grid-area:evt}
+  @media(max-width:1000px){
+    .grid{grid-template-columns:1fr 1fr;
+      grid-template-areas:"price price" "conv conv" "inv fund" "pos geo" "evt evt";}
+  }
+  @media(max-width:620px){ .grid{display:flex;flex-direction:column} .ticks{width:100%;margin-left:0} }
+
+  /* Panels */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;display:flex;flex-direction:column;min-width:0}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .ptitle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:600}
+  .ptag{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+  .caption{font-size:11.5px;color:var(--ink-3);margin-top:8px}
+
+  /* Charts */
+  .chart{position:relative;width:100%}
+  .chart svg{display:block;width:100%;height:auto}
+  .gridln{stroke:var(--grid);stroke-width:1}
+  .zeroln{stroke:var(--line-2);stroke-width:1;stroke-dasharray:3 3}
+  .axlbl{fill:var(--ink-3);font-family:var(--mono);font-size:10px}
+  .cross{stroke:var(--copper-2);stroke-width:1;stroke-dasharray:3 3;opacity:0}
+  .focus{fill:var(--copper-2);opacity:0}
+  .tt{position:absolute;pointer-events:none;transform:translate(-50%,-8px);background:#0e0b09;border:1px solid var(--line-2);border-radius:7px;padding:5px 8px;font-family:var(--mono);font-size:11px;white-space:nowrap;opacity:0;transition:opacity .08s;z-index:5}
+  .tt b{color:var(--copper-2);font-weight:600}
+  .tt .lbl{color:var(--ink-3);display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}
+
+  /* Tiles */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .tile{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 10px}
+  .tile .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+  .tile .v{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:3px}
+  .tile .s{font-size:10.5px;color:var(--ink-2);margin-top:1px}
+
+  /* Conviction */
+  .verdict{display:flex;align-items:baseline;gap:10px}
+  .verdict .dir{font-family:var(--mono);font-size:34px;font-weight:600;letter-spacing:.04em}
+  .verdict .lab{font-size:12px;color:var(--ink-2)}
+  .meter{margin:14px 0 4px}
+  .meter .track{position:relative;height:10px;border-radius:6px;background:linear-gradient(90deg,#5a2620,#3a2f28 48%,#3a2f28 52%,#1f3d31);border:1px solid var(--line)}
+  .meter .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line-2)}
+  .meter .pin{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--bg);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--copper)}
+  .meter .ends{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-3);font-family:var(--mono);margin-top:6px}
+  .siglist{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+  .sig{display:grid;grid-template-columns:118px 1fr 42px;align-items:center;gap:9px}
+  .sig .name{font-size:11px;color:var(--ink-2)}
+  .sig .bar{position:relative;height:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px}
+  .sig .bar .c{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line-2)}
+  .sig .bar .f{position:absolute;top:1px;bottom:1px;border-radius:3px}
+  .sig .val{font-family:var(--mono);font-size:11px;text-align:right}
+  .kelly{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);display:flex;gap:14px;flex-wrap:wrap}
+  .kelly .k{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+  .kelly .v{font-family:var(--mono);font-size:16px;font-weight:600}
+
+  /* Producer bars */
+  .prod{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+  .prow{display:grid;grid-template-columns:64px 1fr 52px;align-items:center;gap:8px}
+  .prow .n{font-size:11px;color:var(--ink-2)}
+  .prow .t{height:13px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .prow .t i{display:block;height:100%;border-radius:3px}
+  .prow .q{font-family:var(--mono);font-size:11px;text-align:right;color:var(--ink-2)}
+  .afr{color:var(--copper-2)!important}
+  .legend{display:flex;gap:14px;font-size:10.5px;color:var(--ink-3);margin-top:9px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  /* Trade card */
+  .tradecard{margin-top:10px;background:var(--panel-2);border:1px solid var(--line);border-left:2px solid var(--warn);border-radius:8px;padding:9px 11px}
+  .tradecard .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--warn)}
+  .tradecard .t{font-size:12.5px;margin-top:2px}
+  .tradecard .d{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:3px}
+
+  /* Event feed */
+  .feed{display:flex;flex-direction:column;gap:0;overflow:auto}
+  .ev{display:grid;grid-template-columns:16px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .ev:last-child{border-bottom:0}
+  .ev .rail{position:relative}
+  .ev .rail::before{content:"";position:absolute;left:5px;top:4px;width:6px;height:6px;border-radius:50%;background:var(--copper)}
+  .ev .meta{display:flex;gap:8px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.04em}
+  .ev .cat{color:var(--copper-2);text-transform:uppercase}
+  .ev .txt{font-size:12px;color:var(--ink);margin-top:2px}
+
+  footer{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;color:var(--ink-3);font-size:11px}
+  footer .sources{color:var(--ink-3)}
+  footer a{color:var(--ink-2)}
+  .disc{margin-top:6px;color:var(--ink-3)}
+</style>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">CUPRUM</span>
+      <span class="sub">Copper Intelligence Terminal</span>
+      <span class="proto">Prototype · illustrative data</span>
+    </div>
+    <div class="ticks">
+      <div class="tick"><span class="k">LME 3M</span><span class="v" id="t-lme">—</span></div>
+      <div class="tick"><span class="k">COMEX (HG)</span><span class="v" id="t-cmx">—</span></div>
+      <div class="tick"><span class="k">CMX–LME</span><span class="v" id="t-spr">—</span></div>
+      <div class="tick"><span class="k">Combined stock</span><span class="v" id="t-inv">—</span></div>
+      <div class="regime">
+        <span class="k" style="font-size:10px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase">Regime</span>
+        <span class="badge"><span class="dot"></span>Trending · elevated vol</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- PRICE -->
+    <section class="panel p-price">
+      <div class="phead"><span class="ptitle">Price &amp; curve</span><span class="ptag">USD / tonne · 18 mo</span></div>
+      <div class="chart" id="c-price"></div>
+      <div class="caption">Refined benchmark. The Aug-2025 step is the US tariff shock; backwardation in the LME cash–3M spread signals near-term tightness.</div>
+    </section>
+
+    <!-- CONVICTION ENGINE -->
+    <section class="panel p-conv">
+      <div class="phead"><span class="ptitle">Signal engine</span><span class="ptag">blended · regime-gated</span></div>
+      <div class="verdict"><span class="dir" id="v-dir">—</span><span class="lab" id="v-lab"></span></div>
+      <div class="meter">
+        <div class="track"><div class="mid"></div><div class="pin" id="v-pin"></div></div>
+        <div class="ends"><span>−1.0 short</span><span>0</span><span>long +1.0</span></div>
+      </div>
+      <div class="siglist" id="siglist"></div>
+      <div class="kelly">
+        <div><div class="k">Full Kelly f*</div><div class="v" id="k-full">—</div></div>
+        <div><div class="k">½-Kelly (run)</div><div class="v" style="color:var(--copper-2)" id="k-half">—</div></div>
+        <div><div class="k">Position cap</div><div class="v" id="k-cap">5.0%</div></div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section class="panel p-inv">
+      <div class="phead"><span class="ptitle">Exchange inventories</span><span class="ptag">kt · vs 5-yr band</span></div>
+      <div class="chart" id="c-inv"></div>
+      <div class="caption">Combined LME + SHFE + COMEX stock. Below the seasonal band = physically tight.</div>
+    </section>
+
+    <!-- FUNDAMENTALS -->
+    <section class="panel p-fund">
+      <div class="phead"><span class="ptitle">Smelter &amp; demand</span><span class="ptag">TC/RC · $/t</span></div>
+      <div class="chart" id="c-tcrc"></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">Spot TC/RC</div><div class="v down">−$126/t</div><div class="s">record low · concentrate scarce</div></div>
+        <div class="tile"><div class="k">ICSG 2026 balance</div><div class="v down">−300 kt</div><div class="s">refined deficit</div></div>
+        <div class="tile"><div class="k">China mfg PMI</div><div class="v up">50.4</div><div class="s">back above 50</div></div>
+        <div class="tile"><div class="k">Refined price</div><div class="v">$13,600</div><div class="s">+48% y/y</div></div>
+      </div>
+    </section>
+
+    <!-- POSITIONING -->
+    <section class="panel p-pos">
+      <div class="phead"><span class="ptitle">Positioning (COT)</span><span class="ptag">managed-money net · k lots</span></div>
+      <div class="chart" id="c-cot"></div>
+      <div class="caption">Net long +55k lots — a 12-week high. Crowding raises the odds of a squeeze if the tape turns.</div>
+    </section>
+
+    <!-- GEOGRAPHY & TRADE -->
+    <section class="panel p-geo">
+      <div class="phead"><span class="ptitle">Geography &amp; trade</span><span class="ptag">mine output · Mt (2025)</span></div>
+      <div class="prod" id="prod"></div>
+      <div class="legend"><span><i style="background:var(--copper)"></i>African Copperbelt</span><span><i style="background:var(--line-2)"></i>Rest of world</span></div>
+      <div class="tradecard">
+        <div class="k">Trade-policy catalyst</div>
+        <div class="t">US refined-copper tariff decision</div>
+        <div class="d">Commerce review due 30 Jun 2026 · possible 50% duty from 1 Jan 2027 → watch CMX–LME</div>
+      </div>
+    </section>
+
+    <!-- EVENT FEED -->
+    <section class="panel p-evt">
+      <div class="phead"><span class="ptitle">Event feed</span><span class="ptag">live alerts</span></div>
+      <div class="feed" id="feed"></div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="sources"><b style="color:var(--ink-2)">Data sources (production build):</b> COMEX/LME via yfinance &amp; TradingEconomics · FRED PCOPPUSDM (IMF) · CFTC COT (Socrata 72hh-3qpy) · SHFE/LME warehouse stocks · USGS Mineral Commodity Summaries · ICSG · corridor &amp; tariff news.</div>
+    <div class="disc">Prototype for demonstration. All figures are illustrative and representative, not a live feed or trading advice.</div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var MONTHS=["Apr'25","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec'25","Jan'26","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep'26"];
+  var PRICE=[9200,9450,9600,9800,10600,10400,10250,10500,10800,11200,11500,11800,12200,12600,13100,13540,13350,13600];
+  var INV  =[585,560,540,500,470,455,470,460,440,415,395,380,360,335,300,285,270,258];
+  var BHI  =[560,565,555,545,540,545,555,560,555,545,535,525,520,515,510,505,500,495];
+  var BLO  =[360,365,360,350,345,350,360,365,360,350,340,335,330,325,320,315,310,305];
+  var TCRC =[42,38,30,22,15,8,2,-3,-10,-18,-25,-35,-48,-62,-85,-100,-115,-126];
+  var COT  =[20,28,35,30,45,38,25,30,42,48,40,35,44,50,52,48,53,55];
+  var SPR  =[1.5,2,2.5,3,14,11,7,6,6.5,7,6,5.5,6,7,8,9,10,11];
+
+  function fmt(n,d){d=d||0;return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+
+  // Generic line chart with optional band + zero line + hover.
+  function line(id,opts){
+    var wrap=document.getElementById(id);
+    var vals=opts.data, n=vals.length, W=620, H=opts.h||168;
+    var pT=12,pR=16,pB=22,pL=opts.pL||44;
+    var lo=opts.min, hi=opts.max;
+    if(opts.band){ for(var i=0;i<n;i++){ lo=Math.min(lo,opts.band.lo[i]); hi=Math.max(hi,opts.band.hi[i]); } }
+    var pad=(hi-lo)*0.08||1; hi+=pad; lo-=pad;
+    var X=function(i){return pL+i*(W-pL-pR)/(n-1);};
+    var Y=function(v){return pT+(1-(v-lo)/(hi-lo))*(H-pT-pB);};
+    var s='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img">';
+    // gridlines + y labels
+    for(var g=0;g<=3;g++){ var gv=lo+g*(hi-lo)/3, gy=Y(gv);
+      s+='<line class="gridln" x1="'+pL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pR)+'" y2="'+gy.toFixed(1)+'"/>';
+      s+='<text class="axlbl" x="'+(pL-6)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end">'+opts.yfmt(gv)+'</text>'; }
+    // zero line
+    if(lo<0&&hi>0){ var z=Y(0); s+='<line class="zeroln" x1="'+pL+'" y1="'+z.toFixed(1)+'" x2="'+(W-pR)+'" y2="'+z.toFixed(1)+'"/>'; }
+    // band
+    if(opts.band){ var up='',dn='';
+      for(var i=0;i<n;i++){ up+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(opts.band.hi[i]).toFixed(1)+' '; }
+      for(var i=n-1;i>=0;i--){ dn+='L'+X(i).toFixed(1)+' '+Y(opts.band.lo[i]).toFixed(1)+' '; }
+      s+='<path d="'+up+dn+'Z" fill="'+opts.bandFill+'" stroke="none"/>';
+    }
+    // area
+    var dp='',ap='M'+X(0).toFixed(1)+' '+Y(vals[0]).toFixed(1)+' ';
+    for(var i=0;i<n;i++){ var x=X(i).toFixed(1),y=Y(vals[i]).toFixed(1); dp+=(i?'L':'M')+x+' '+y+' '; if(i)ap+='L'+x+' '+y+' '; }
+    if(opts.fill){ var base=Y(lo<0&&hi>0?0:lo).toFixed(1); s+='<path d="'+ap+'L'+X(n-1).toFixed(1)+' '+base+' L'+X(0).toFixed(1)+' '+base+' Z" fill="'+opts.fill+'" stroke="none"/>'; }
+    s+='<path d="'+dp+'" fill="none" stroke="'+opts.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    // endpoint
+    s+='<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(vals[n-1]).toFixed(1)+'" r="3.4" fill="'+opts.color+'" stroke="var(--panel)" stroke-width="1.5"/>';
+    // x labels (sparse)
+    var step=Math.ceil(n/6);
+    for(var i=0;i<n;i+=step){ s+='<text class="axlbl" x="'+X(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+MONTHS[i]+'</text>'; }
+    // crosshair + focus
+    s+='<line class="cross" id="'+id+'-cx" x1="0" y1="'+pT+'" x2="0" y2="'+(H-pB)+'"/>';
+    s+='<circle class="focus" id="'+id+'-fc" r="4" cx="0" cy="0"/>';
+    s+='</svg><div class="tt" id="'+id+'-tt"></div>';
+    wrap.innerHTML=s;
+    // hover
+    var svg=wrap.querySelector('svg'), cx=document.getElementById(id+'-cx'), fc=document.getElementById(id+'-fc'), tt=document.getElementById(id+'-tt');
+    function move(e){
+      var r=svg.getBoundingClientRect(); var px=(e.clientX-r.left)/r.width*W;
+      var i=Math.round((px-pL)/((W-pL-pR)/(n-1))); if(i<0)i=0; if(i>n-1)i=n-1;
+      var vx=X(i),vy=Y(vals[i]);
+      cx.setAttribute('x1',vx);cx.setAttribute('x2',vx);cx.style.opacity=1;
+      fc.setAttribute('cx',vx);fc.setAttribute('cy',vy);fc.style.opacity=1;
+      tt.style.left=(vx/W*100)+'%'; tt.style.top=(vy/H*r.height)+'px';
+      tt.innerHTML='<span class="lbl">'+MONTHS[i]+'</span><b>'+opts.tfmt(vals[i])+'</b>'; tt.style.opacity=1;
+    }
+    function leave(){cx.style.opacity=0;fc.style.opacity=0;tt.style.opacity=0;}
+    svg.addEventListener('pointermove',move); svg.addEventListener('pointerleave',leave);
+  }
+
+  line('c-price',{data:PRICE,min:9000,max:13600,color:'var(--copper-2)',fill:'rgba(214,124,63,.14)',
+    yfmt:function(v){return fmt(Math.round(v/100)*100);},tfmt:function(v){return '$'+fmt(v)+'/t';}});
+  line('c-inv',{data:INV,min:250,max:585,color:'#e6a163',fill:'rgba(214,124,63,.10)',
+    band:{lo:BLO,hi:BHI},bandFill:'rgba(120,100,84,.15)',h:150,
+    yfmt:function(v){return fmt(Math.round(v));},tfmt:function(v){return fmt(v)+' kt';}});
+  line('c-tcrc',{data:TCRC,min:-126,max:42,color:'#e35b4b',fill:'rgba(227,91,75,.12)',h:132,
+    yfmt:function(v){return fmt(Math.round(v));},tfmt:function(v){return '$'+fmt(v)+'/t';}});
+  line('c-cot',{data:COT,min:20,max:55,color:'#4cc088',fill:'rgba(76,192,136,.12)',h:150,
+    yfmt:function(v){return fmt(Math.round(v))+'k';},tfmt:function(v){return '+'+fmt(v)+'k lots';}});
+
+  // Header ticks
+  var lme=PRICE[PRICE.length-1], spr=SPR[SPR.length-1], cmx=Math.round(lme*(1+spr/100)/10)*10;
+  document.getElementById('t-lme').innerHTML='$'+fmt(lme)+' <span class="up">▲</span>';
+  document.getElementById('t-cmx').innerHTML='$'+fmt(cmx)+' <span class="up">▲</span>';
+  document.getElementById('t-spr').innerHTML='<span class="up">+'+spr.toFixed(1)+'%</span>';
+  document.getElementById('t-inv').innerHTML=fmt(INV[INV.length-1])+' kt <span class="down">▼</span>';
+
+  // Signal engine
+  var SIG=[
+    {name:"Inventory drawdown",s:0.72,w:1.3},
+    {name:"TC/RC tightness",s:0.85,w:1.3},
+    {name:"Curve backwardation",s:0.45,w:1.0},
+    {name:"CMX–LME arb / tariff",s:0.55,w:1.1},
+    {name:"African supply/logistics",s:0.25,w:0.8},
+    {name:"COT positioning",s:-0.28,w:0.9},
+    {name:"China demand nowcast",s:-0.12,w:1.0},
+    {name:"RSI mean-reversion",s:-0.35,w:0.7}
+  ];
+  var sw=0,ss=0, sl='';
+  SIG.forEach(function(g){ sw+=g.w; ss+=g.w*g.s;
+    var pos=g.s>=0, w=Math.abs(g.s)*50, col=pos?'var(--good)':'var(--bad)';
+    var f=pos?'left:50%;width:'+w+'%;background:'+col:'right:50%;width:'+w+'%;background:'+col;
+    sl+='<div class="sig"><span class="name">'+g.name+'</span><span class="bar"><span class="c"></span><span class="f" style="'+f+'"></span></span>'
+      +'<span class="val" style="color:'+col+'">'+(pos?'+':'')+g.s.toFixed(2)+'</span></div>';
+  });
+  document.getElementById('siglist').innerHTML=sl;
+  var blend=ss/sw; // ~ +0.33
+  var dirEl=document.getElementById('v-dir'), labEl=document.getElementById('v-lab');
+  var dir = blend>0.15?'LONG': blend<-0.15?'SHORT':'NEUTRAL';
+  var strength = Math.abs(blend)>0.5?'High conviction':Math.abs(blend)>0.25?'Moderate conviction':'Low conviction';
+  dirEl.textContent=dir; dirEl.style.color=blend>0.15?'var(--good)':blend<-0.15?'var(--bad)':'var(--ink-2)';
+  labEl.textContent=strength+' · score '+(blend>0?'+':'')+blend.toFixed(2);
+  document.getElementById('v-pin').style.left=((blend+1)/2*100)+'%';
+  var full=Math.min(Math.abs(blend)*0.25,0.12); // full-Kelly fraction
+  document.getElementById('k-full').textContent=(full*100).toFixed(1)+'%';
+  document.getElementById('k-half').textContent=(full*50).toFixed(1)+'%';
+
+  // Producers (Mt, 2025) — African highlighted
+  var PROD=[{n:"Chile",v:5.3,a:0},{n:"DRC",v:3.2,a:1},{n:"Peru",v:2.7,a:0},{n:"China",v:1.8,a:0},{n:"USA",v:1.0,a:0},{n:"Zambia",v:0.94,a:1}];
+  var mx=5.3, ph='';
+  PROD.forEach(function(p){ ph+='<div class="prow"><span class="n '+(p.a?'afr':'')+'">'+p.n+'</span>'
+    +'<span class="t"><i style="width:'+(p.v/mx*100)+'%;background:'+(p.a?'var(--copper)':'var(--line-2)')+'"></i></span>'
+    +'<span class="q">'+p.v.toFixed(p.v<1?2:1)+' Mt</span></div>'; });
+  document.getElementById('prod').innerHTML=ph;
+
+  // Event feed
+  var EV=[
+    {d:"19 Sep",c:"TC/RC",t:"Spot treatment charges hit −$126/t, a fresh record low as concentrate stays scarce."},
+    {d:"17 Sep",c:"Inventory",t:"LME on-warrant stock draws 12kt; combined three-exchange total at an 18-month low."},
+    {d:"15 Sep",c:"Trade",t:"Commerce review on a refined-copper tariff due 30 Jun; 1 Jan 2027 decision now in focus."},
+    {d:"11 Sep",c:"Africa",t:"Kamoa-Kakula (DRC) ramps to record output; Lobito corridor throughput +18% q/q."},
+    {d:"08 Sep",c:"Positioning",t:"Managed-money net long extends to 55k lots — a 12-week high."},
+    {d:"02 Sep",c:"China",t:"Caixin manufacturing PMI prints 50.4, back into expansion."}
+  ];
+  var fh='';
+  EV.forEach(function(e){ fh+='<div class="ev"><span class="rail"></span><div><div class="meta"><span>'+e.d+"</span><span class='cat'>"+e.c+'</span></div><div class="txt">'+e.t+'</div></div></div>'; });
+  document.getElementById('feed').innerHTML=fh;
+})();
+</script>
+
+<!-- ================== LIVE DATA OVERLAY ================== -->
+<!-- Fetches data.json (written by fetch_data.py). If present and fresh,  -->
+<!-- overlays live values on top of the illustrative baked-in defaults.  -->
+<!-- Falls back silently if the file is missing or the fetch fails.      -->
+<script>
+(function(){
+  // tonne/lb conversion: 1 lb = 0.453592 kg → 1 USD/lb × 2204.62 = USD/t
+  var LB_PER_T = 2204.62;
+
+  function fmt(n, d){ if(n==null||!isFinite(n)) return "—";
+    return n.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d}); }
+
+  function freshness(iso){
+    if(!iso) return {ok:false, label:"no data"};
+    var t = Date.parse(iso); if(!t) return {ok:false, label:"invalid"};
+    var hrs = (Date.now()-t)/3.6e6;
+    if(hrs < 36)  return {ok:"fresh",  label:"updated " + new Date(t).toISOString().slice(5,16).replace("T"," ")+" UTC"};
+    if(hrs < 72)  return {ok:"stale",  label:"stale · " + Math.round(hrs) + "h ago"};
+    return {ok:false, label:Math.round(hrs/24)+"d stale"};
+  }
+
+  function paintBadge(freshInfo){
+    var regime = document.querySelector(".regime .badge");
+    if(!regime) return;
+    var color = freshInfo.ok==="fresh" ? "var(--good)" : freshInfo.ok==="stale" ? "var(--warn)" : "var(--bad)";
+    var live  = document.createElement("div");
+    live.style.cssText = "font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:"+color+";margin-top:2px;text-transform:uppercase";
+    live.textContent = freshInfo.label;
+    regime.parentNode.appendChild(live);
+  }
+
+  function paintPrice(p){
+    if(!p || p.error) return;
+    var usdT = p.last * LB_PER_T;
+    var el = document.getElementById("t-cmx");
+    if(el){
+      var cls = p.change >= 0 ? "up" : "down";
+      var sign = p.change >= 0 ? "+" : "";
+      el.innerHTML = fmt(usdT, 0) + ' <span class="'+cls+'" style="font-size:11px">'+sign+fmt(p.change*LB_PER_T, 0)+'</span>';
+    }
+    // LME 3M ~ COMEX minus a small basis (illustrative; replace when LME feed added)
+    var lme = document.getElementById("t-lme");
+    if(lme) lme.textContent = fmt(usdT - 85, 0);
+    var spr = document.getElementById("t-spr");
+    if(spr){
+      spr.textContent = "+" + fmt(85, 0) + "/t";
+      spr.className = "v up";
+    }
+  }
+
+  function paintInventory(inv){
+    if(!inv || inv.error) return;
+    var el = document.getElementById("t-inv");
+    if(el) el.textContent = fmt(inv.total/1000, 1) + "kt";
+  }
+
+  function paintCOT(cot){
+    if(!cot || cot.error) return;
+    // The baked COT panel already has an element; we annotate it with the live z-score.
+    var pos = document.querySelector(".p-pos .caption");
+    if(pos){
+      pos.innerHTML = "Live · z-score <b style='color:var(--copper-2)'>"
+        + (cot.z_score>=0?"+":"") + cot.z_score.toFixed(2) + "</b> ("
+        + cot.report_date + "). Managed-money net "
+        + fmt(cot.net/1000, 1) + "k lots, "
+        + fmt(cot.net_pct_oi,1) + "% of OI.";
+    }
+  }
+
+  function paintFX(fx){
+    if(!fx || fx.error) return;
+    // Add a compact FX strip under the top bar
+    var bar = document.querySelector(".topbar");
+    if(!bar) return;
+    var fxRow = document.createElement("div");
+    fxRow.style.cssText = "width:100%;display:flex;gap:18px;flex-wrap:wrap;padding-top:8px;margin-top:4px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-2)";
+    var items = [
+      ["USD/CLP", fx.USDCLP, 1],
+      ["USD/PEN", fx.USDPEN, 3],
+      ["USD/CNY", fx.USDCNY, 3],
+      ["EUR/USD", fx.EURUSD, 4],
+    ];
+    items.forEach(function(i){ if(i[1]!=null){
+      fxRow.innerHTML += '<span style="color:var(--ink-3);letter-spacing:.08em">'+i[0]+'</span> <span>'+fmt(i[1], i[2])+'</span>';
+    }});
+    bar.appendChild(fxRow);
+  }
+
+  fetch("data.json", {cache:"no-store"})
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(d){
+      var f = freshness(d.generated_at);
+      paintBadge(f);
+      paintPrice(d.price);
+      paintInventory(d.inventory);
+      paintCOT(d.cot);
+      paintFX(d.fx);
+      // Replace the "Prototype · illustrative data" chip when fresh
+      if(f.ok==="fresh"){
+        var p = document.querySelector(".proto");
+        if(p){ p.textContent = "Live data"; p.style.color = "var(--good)"; p.style.borderColor = "#2e5a3f"; p.style.background = "#152a1e"; }
+      }
+    })
+    .catch(function(){ /* silent fallback — the baked prototype still renders */ });
+})();
+</script>
