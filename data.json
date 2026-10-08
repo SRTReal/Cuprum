@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T02:09:29+00:00",
+  "generated_at": "2026-10-08T02:35:23+00:00",
   "sources": {
     "price": "Yahoo Finance (HG=F, ~15m delayed)",
     "cot": "CFTC disaggregated futures, weekly",
@@ -9,9 +9,9 @@
   },
   "price": {
     "symbol": "HG=F",
-    "last": 6.6465,
-    "change": 0.061,
-    "change_pct": 0.926,
+    "last": 6.7535,
+    "change": 0.159,
+    "change_pct": 2.411,
     "unit": "USD/lb",
     "history": [
       {
@@ -1524,7 +1524,11 @@
       },
       {
         "d": "2026-10-06",
-        "c": 6.6465
+        "c": 6.5945
+      },
+      {
+        "d": "2026-10-07",
+        "c": 6.7535
       }
     ]
   },
@@ -1532,9 +1536,9 @@
     "error": "HTTPError: 403 Client Error: Forbidden for url: https://www.cftc.gov/files/dea/history/fut_disagg_txt_2026.zip"
   },
   "fx": {
-    "EURUSD": 1.1269,
+    "EURUSD": 1.1177,
     "USDCNY": 6.7046,
-    "USDAUD": 1.4322
+    "USDAUD": 1.4386
   },
   "inventory": {
     "lme_cu": 185000,
