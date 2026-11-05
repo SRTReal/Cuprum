@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-04T02:56:13+00:00",
+  "generated_at": "2026-11-05T03:16:34+00:00",
   "sources": {
     "price": "Yahoo Finance (HG=F, ~15m delayed)",
     "cot": "CFTC disaggregated futures, weekly",
@@ -9,9 +9,9 @@
   },
   "price": {
     "symbol": "HG=F",
-    "last": 6.3185,
-    "change": -0.225,
-    "change_pct": -3.439,
+    "last": 6.442,
+    "change": 0.0635,
+    "change_pct": 0.996,
     "unit": "USD/lb",
     "history": [
       {
@@ -1528,7 +1528,11 @@
       },
       {
         "d": "2026-11-03",
-        "c": 6.3185
+        "c": 6.3785
+      },
+      {
+        "d": "2026-11-04",
+        "c": 6.442
       }
     ]
   },
@@ -1672,9 +1676,9 @@
     ]
   },
   "fx": {
-    "EURUSD": 1.1179,
+    "EURUSD": 1.1267,
     "USDCNY": 6.6723,
-    "USDAUD": 1.4319
+    "USDAUD": 1.4255
   },
   "inventory": {
     "lme_cu": 185000,
